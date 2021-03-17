@@ -22,7 +22,7 @@ from geopy.distance import geodesic, GeodesicDistance
 BASE_URL = "https://maps.googleapis.com/maps/api/place/"
 RADAR_URL = BASE_URL + "radarsearch/json?location={},{}&radius={}&types={}&key={}"
 NEARBY_URL = BASE_URL + "nearbysearch/json?location={},{}&radius={}&types={}&key={}"
-DETAIL_URL = BASE_URL + "details/json?placeid={}&key={}"
+DETAIL_URL = BASE_URL + "details/json?place_id={}&key={}"
 
 # user agent for populartimes request
 USER_AGENT = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) "
@@ -133,9 +133,9 @@ def get_circle_centers(b1, b2, radius):
     circles = cover_rect_with_cicles(dist_lat, dist_lng, radius)
     cords = [
         GeodesicDistance(meters=c[0])
-            .destination(
+        .destination(
             GeodesicDistance(meters=c[1])
-                .destination(point=sw, bearing=90),
+            .destination(point=sw, bearing=90),
             bearing=0
         )[:2]
         for c in circles
@@ -161,7 +161,8 @@ def get_radar(item):
     # places - nearby search
     # https://developers.google.com/places/web-service/search?hl=en#PlaceSearchRequests
     radar_str = NEARBY_URL.format(
-        _lat, _lng, params["radius"], "|".join(params["type"]), params["API_key"]
+        _lat, _lng, params["radius"], "|".join(
+            params["type"]), params["API_key"]
     )
 
     # is this a next page request?
@@ -180,7 +181,8 @@ def get_radar(item):
 
     item["res"] += len(radar)
     if item["res"] >= 60:
-        logging.warning("Result limit in search radius reached, some data may get lost")
+        logging.warning(
+            "Result limit in search radius reached, some data may get lost")
 
     bounds = params["bounds"]
 
@@ -244,7 +246,8 @@ def get_popularity_for_day(popularity):
                     elif "hour" in hour_info[3]:
                         wait_json[day_no - 1][hour] = int(wait_digits[0]) * 60
                     else:
-                        wait_json[day_no - 1][hour] = int(wait_digits[0]) * 60 + int(wait_digits[1])
+                        wait_json[day_no -
+                                  1][hour] = int(wait_digits[0]) * 60 + int(wait_digits[1])
 
                 # day wrap
                 if hour_info[0] == 23:
@@ -356,7 +359,8 @@ def get_populartimes_from_search(name, address):
               "!3b1"
     }
 
-    search_url = "https://www.google.de/search?" + "&".join(k + "=" + str(v) for k, v in params_url.items())
+    search_url = "https://www.google.de/search?" + \
+        "&".join(k + "=" + str(v) for k, v in params_url.items())
     logging.info("searchterm: " + search_url)
 
     # noinspection PyUnresolvedReferences
@@ -375,7 +379,8 @@ def get_populartimes_from_search(name, address):
     jdata = json.loads(jdata[4:])
 
     # check if proper and numeric address, i.e. multiple components and street number
-    is_proper_address = any(char.isspace() for char in address.strip()) and any(char.isdigit() for char in address)
+    is_proper_address = any(char.isspace() for char in address.strip()) and any(
+        char.isdigit() for char in address)
 
     info = index_get(jdata, 0, 1, 0 if is_proper_address else 1, 14)
 
@@ -392,7 +397,8 @@ def get_populartimes_from_search(name, address):
     # extract wait times and convert to minutes
     if time_spent:
 
-        nums = [float(f) for f in re.findall(r'\d*\.\d+|\d+', time_spent.replace(",", "."))]
+        nums = [float(f) for f in re.findall(
+            r'\d*\.\d+|\d+', time_spent.replace(",", "."))]
         contains_min, contains_hour = "min" in time_spent, "hour" in time_spent or "hr" in time_spent
 
         time_spent = None
@@ -400,7 +406,8 @@ def get_populartimes_from_search(name, address):
         if contains_min and contains_hour:
             time_spent = [nums[0], nums[1] * 60]
         elif contains_hour:
-            time_spent = [nums[0] * 60, (nums[0] if len(nums) == 1 else nums[1]) * 60]
+            time_spent = [nums[0] * 60,
+                          (nums[0] if len(nums) == 1 else nums[1]) * 60]
         elif contains_min:
             time_spent = [nums[0], nums[0] if len(nums) == 1 else nums[1]]
 
@@ -417,7 +424,8 @@ def get_detail(place_id):
     global results
 
     # detail_json = get_populartimes(params["API_key"], place_id)
-    detail_json = get_populartimes_by_detail(params["API_key"], g_places[place_id])
+    detail_json = get_populartimes_by_detail(
+        params["API_key"], g_places[place_id])
 
     if params["all_places"] or "populartimes" in detail_json:
         results.append(detail_json)
@@ -442,7 +450,8 @@ def get_populartimes(api_key, place_id):
 
 
 def get_populartimes_by_detail(api_key, detail):
-    address = detail["formatted_address"] if "formatted_address" in detail else detail.get("vicinity", "")
+    address = detail["formatted_address"] if "formatted_address" in detail else detail.get(
+        "vicinity", "")
 
     detail_json = {
         "id": detail["place_id"],
@@ -521,12 +530,14 @@ def run(_params):
     # cover search area with circles
     bounds = params["bounds"]
     for lat, lng in get_circle_centers([bounds["lower"]["lat"], bounds["lower"]["lng"]],  # southwest
-                                       [bounds["upper"]["lat"], bounds["upper"]["lng"]],  # northeast
+                                       [bounds["upper"]["lat"],
+                                           bounds["upper"]["lng"]],  # northeast
                                        params["radius"]):
         q_radar.put(dict(pos=(lat, lng), res=0))
 
     q_radar.join()
-    logging.info("Finished in: {}".format(str(datetime.datetime.now() - start)))
+    logging.info("Finished in: {}".format(
+        str(datetime.datetime.now() - start)))
 
     logging.info("{} places to process...".format(len(g_places)))
 
@@ -540,6 +551,7 @@ def run(_params):
         q_detail.put(g_place_id)
 
     q_detail.join()
-    logging.info("Finished in: {}".format(str(datetime.datetime.now() - start)))
+    logging.info("Finished in: {}".format(
+        str(datetime.datetime.now() - start)))
 
     return results
